@@ -98,6 +98,46 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_jobs(status);
+
+-- Interview prep (prep.py, ADR-013). All three cascade when a role is deleted.
+CREATE TABLE IF NOT EXISTS prep_notes (
+    role_id          INTEGER PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+    employer         TEXT,                     -- what you know about them (markdown)
+    role_focus       TEXT,                     -- what they need to hear, one per line
+    questions_to_ask TEXT,                     -- one per line
+    talking_points   TEXT,                     -- one per line
+    risks            TEXT,                     -- gaps to handle honestly, one per line
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS prep_questions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    role_id       INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    question      TEXT NOT NULL,
+    why_asked     TEXT,
+    answer_outline TEXT,
+    evidence      TEXT,                        -- what to draw on from your real experience
+    my_answer     TEXT,                        -- your own wording
+    status        TEXT NOT NULL DEFAULT 'Needs work',  -- Needs work / Drafted / Ready
+    source        TEXT NOT NULL DEFAULT 'manual',      -- manual / ai
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_prep_questions_role ON prep_questions(role_id);
+
+CREATE TABLE IF NOT EXISTS interview_rounds (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    role_id      INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    round_no     INTEGER NOT NULL DEFAULT 1,
+    scheduled_at TEXT,                         -- ISO date or datetime
+    format       TEXT,                         -- phone / video / on-site / technical test ...
+    interviewers TEXT,
+    notes        TEXT,                         -- after-the-fact notes
+    outcome      TEXT,                         -- free text: passed, waiting, rejected ...
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_interview_rounds_role ON interview_rounds(role_id);
 """
 
 
