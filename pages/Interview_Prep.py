@@ -11,6 +11,7 @@ import datetime as dt
 
 import streamlit as st
 
+import claude_jobs as cj
 import db
 import prep
 
@@ -20,6 +21,18 @@ db.init_db()  # idempotent; this page can be opened before the main one
 
 def _toast(message: str) -> None:
     st.session_state["prep_flash"] = message
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _server_has_answer_draft() -> bool:
+    """Whether the Claude server offers the answer_draft profile (checked every 5 min)."""
+    try:
+        return "answer_draft" in cj.server_profiles()
+    except cj.ClaudeWebError:
+        return False
+
+
+CAN_CLAUDE = cj.enabled() and _server_has_answer_draft()
 
 
 def _selected_role(roles: list[dict]) -> dict:
@@ -91,7 +104,9 @@ if ai_results:
                 )
                 st.rerun()
 
-tab_q, tab_n, tab_r, tab_x = st.tabs(["Questions", "Notes", "Interviews", "Export"])
+tab_q, tab_d, tab_n, tab_r, tab_x = st.tabs(
+    ["Questions", "Claude drafts", "Notes", "Interviews", "Export"]
+)
 
 with tab_q:
     with st.form("prep_add_question", clear_on_submit=True):
@@ -125,13 +140,17 @@ with tab_q:
                     format_func=lambda sid: next(s["title"] for s in bank if s["id"] == sid),
                     help="Your own examples. Add them on the Story bank page.",
                 )
-                save, draft, drop = st.columns(3)
+                save, draft, claude, drop = st.columns(4)
                 if save.form_submit_button("Save", type="primary"):
-                    with db.connect() as conn:
-                        prep.update_question(conn, q["id"], my_answer=answer, status=status)
-                        prep.set_question_stories(conn, q["id"], picked)
-                    _toast("Saved.")
-                    st.rerun()
+                    try:
+                        with db.connect() as conn:
+                            prep.update_question(conn, q["id"], my_answer=answer, status=status)
+                            prep.set_question_stories(conn, q["id"], picked)
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        _toast("Saved.")
+                        st.rerun()
                 if draft.form_submit_button("Draft from stories"):
                     with db.connect() as conn:
                         prep.set_question_stories(conn, q["id"], picked)
@@ -140,14 +159,97 @@ with tab_q:
                         if text:
                             # Never overwrite your wording: add the draft underneath.
                             merged = f"{answer.strip()}\n\n---\n{text}" if answer.strip() else text
-                            prep.update_question(conn, q["id"], my_answer=merged, status=status)
+                            # [add: ...] gaps mean it is not Ready yet.
+                            new_status = "Drafted" if prep.has_placeholders(merged) else status
+                            prep.update_question(
+                                conn, q["id"], my_answer=merged, status=new_status
+                            )
                     _toast("Draft added from your stories." if text else "Pick a story first.")
                     st.rerun()
+                if claude.form_submit_button(
+                    "Draft with Claude",
+                    disabled=not CAN_CLAUDE,
+                    help="Sends this question, your linked stories and your profile to the Claude "
+                    "server. Unknown details come back as [FILL IN] gaps, never invented."
+                    if CAN_CLAUDE else "Needs the Claude server with the answer_draft profile.",
+                ):
+                    candidate, _src = cj.load_candidate()
+                    if candidate is None:
+                        st.error("No profile.json or uploaded CV to draw on.")
+                    else:
+                        try:
+                            with db.connect() as conn:
+                                prep.update_question(conn, q["id"], my_answer=answer)
+                                prep.set_question_stories(conn, q["id"], picked)
+                                with_bank, _n, _dropped = cj.with_story_bank(conn, candidate)
+                                payload = prep.answer_draft_payload(
+                                    conn, q["id"], with_bank, cj.role_input(full_role)
+                                )
+                                ai_id = cj.submit(conn, "answer_draft", payload, rid)
+                                prep.record_draft_job(conn, ai_id, q["id"])
+                                conn.commit()
+                        except (cj.ClaudeWebError, ValueError) as exc:
+                            st.error(str(exc))
+                        else:
+                            _toast("Draft requested. It appears in the Claude drafts tab.")
+                            st.rerun()
                 if drop.form_submit_button("Delete question"):
                     with db.connect() as conn:
                         prep.delete_question(conn, q["id"])
                     _toast("Question deleted.")
                     st.rerun()
+
+with tab_d:
+    if not cj.enabled():
+        st.caption("The Claude server isn't connected (set CLAUDE_WEB_URL and CLAUDE_WEB_API_KEY).")
+    elif not CAN_CLAUDE:
+        st.info(
+            "The server doesn't offer the `answer_draft` profile yet. Apply "
+            "`docs/server/claude-web-answer_draft.patch` to the server, then enable the "
+            "profile on your key."
+        )
+    with db.connect() as conn:
+        drafts = prep.list_answer_drafts(conn, rid)
+        if any(d["status"] in ("queued", "running") for d in drafts):
+            try:
+                cj.sync(conn)
+                conn.commit()
+            except cj.ClaudeWebError as exc:
+                st.warning(str(exc))
+            drafts = prep.list_answer_drafts(conn, rid)
+    if st.button("Refresh", key="prep_drafts_refresh"):
+        st.rerun()
+    if not drafts:
+        st.caption("No drafts yet. Use **Draft with Claude** on a question.")
+    for d in drafts:
+        res = d["result"] or {}
+        with st.expander(f"{d['question']}  ·  {d['status']}", expanded=d["status"] == "succeeded"):
+            if d["status"] == "failed":
+                st.error(d["error"] or "The draft failed.")
+            elif d["status"] != "succeeded":
+                st.caption(d["progress"] or "Working…")
+            else:
+                st.text(res.get("answer", ""))
+                for f in res.get("fill_ins") or []:
+                    st.warning(f"{f.get('marker')}: {f.get('needed')}")
+                for g in res.get("gaps") or []:
+                    st.caption(f"Not in your profile or stories: {g}")
+                if res.get("honesty_check"):
+                    st.info(res["honesty_check"])
+                if d["applied_at"]:
+                    st.caption(f"Added to your answer ({d['applied_at']}).")
+                elif st.button("Add to my answer", key=f"prep_apply_{d['id']}"):
+                    try:
+                        with db.connect() as conn:
+                            info = prep.apply_answer_draft(conn, d["id"])
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        _toast(
+                            "Added under your answer. "
+                            f"{info['fill_ins']} gap(s) to fill before it can be Ready."
+                        )
+                        st.rerun()
 
 with tab_n:
     with st.form("prep_notes"):

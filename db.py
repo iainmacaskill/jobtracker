@@ -157,6 +157,13 @@ CREATE TABLE IF NOT EXISTS stories (
     updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Which prep question an answer_draft job was for. The server rejects unknown input
+-- fields, so the question id cannot travel with the job; it is recorded here instead.
+CREATE TABLE IF NOT EXISTS prep_drafts (
+    ai_job_id   INTEGER PRIMARY KEY,
+    question_id INTEGER NOT NULL REFERENCES prep_questions(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS question_stories (
     question_id INTEGER NOT NULL REFERENCES prep_questions(id) ON DELETE CASCADE,
     story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,

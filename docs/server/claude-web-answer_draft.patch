@@ -1,0 +1,197 @@
+diff --git a/claude_web/jobs/jobhunt.py b/claude_web/jobs/jobhunt.py
+index 96f64a3..1c52619 100644
+--- a/claude_web/jobs/jobhunt.py
++++ b/claude_web/jobs/jobhunt.py
+@@ -490,6 +490,96 @@ def _build_interview_prompt(data: InterviewPrepInput) -> str:
+     return "\n".join(lines + _tail(data))
+ 
+ 
++# --------------------------------------------------------------------------
++# answer_draft
++# --------------------------------------------------------------------------
++
++class AnswerDraftInput(_RoleInput):
++    question: str = Field(min_length=5, max_length=500, description="The interview question")
++    why_asked: str = Field(default="", max_length=500, description="What the interviewer is probing")
++    answer_outline: str = Field(default="", max_length=2000, description="An earlier outline, if any")
++    story_ids: List[int] = Field(
++        default_factory=list, max_length=6,
++        description="Ids from candidate.story_bank to build the answer on; empty: pick the best fit",
++    )
++    current_answer: str = Field(
++        default="", max_length=4000,
++        description="The candidate's own draft. Their wording and facts win; improve clarity only",
++    )
++    spoken_minutes: int = Field(default=2, ge=1, le=3, description="Target speaking time")
++
++
++ANSWER_DRAFT_OUTPUT = {
++    "type": "object",
++    "required": ["answer", "word_count", "stories_used", "evidence_used", "fill_ins", "gaps",
++                 "honesty_check"],
++    "properties": {
++        "answer": {"type": "string",
++                   "description": "First person, as spoken. Plain text, paragraphs split by a blank line"},
++        "word_count": {"type": "integer"},
++        "stories_used": {"type": "array", "items": {"type": "integer"},
++                         "description": "ids from candidate.story_bank that the answer relies on"},
++        "evidence_used": {**_STRINGS, "description": "Profile items or story titles relied on"},
++        "fill_ins": {
++            "type": "array",
++            "description": "Every [FILL IN: ...] marker left in the answer",
++            "items": {"type": "object", "required": ["marker", "needed"],
++                      "properties": {"marker": {"type": "string", "description": "Exact text in the answer"},
++                                     "needed": {"type": "string", "description": "What the candidate must supply, and only if true"}}},
++        },
++        "gaps": {**_STRINGS, "description": "What the question asks for that the profile and stories do not show"},
++        "honesty_check": {"type": "string", "description": "One or two sentences: what in the answer is "
++                                                          "stated fact and where it comes from"},
++    },
++}
++
++ANSWER_DRAFT_SYSTEM = f"""\
++You write the answer a candidate would say aloud to one interview question.
++You have no tools. The candidate reviews and rehearses it, so it must be something
++they can truthfully stand behind.
++
++Facts: only the candidate profile, including candidate.story_bank when present (examples
++the candidate wrote about their own work). If story_ids are given, build on those; if not,
++choose the one or two stories that fit best. Ids in stories_used must come from the bank.
++
++Shape: answer the question directly in the first sentence, then one concrete example in
++situation, task, action, result order, and finish on the result and what it shows. First
++person, plain spoken English, no lists. Aim for about 130 words per minute of the
++requested speaking time.
++
++Missing detail: where a number, outcome, tool, client or timeframe would make the answer
++stronger but is not in the profile or story, do NOT supply one. Put a visible marker in
++the text, exactly like [FILL IN: the real load time before and after], and list every
++marker in fill_ins. An answer with honest markers is better than a confident invention.
++
++If current_answer is given, keep the candidate's wording and every fact in it; improve
++order and clarity only, and add no new claim. If answer_outline is given, treat it as a
++guide, not as a source of facts.
++
++If nothing in the profile or stories answers the question, say so in gaps and write a
++short, candid answer from the nearest real experience. Never bluff a skill the profile
++does not show (for example a language or framework it does not list).
++
++{_RULES}"""
++
++
++def _build_answer_prompt(data: AnswerDraftInput) -> str:
++    lines = ["Write a spoken answer to this interview question."] + _role_block(data.role) + [""]
++    lines += _candidate_block(data)
++    lines += ["", f"Question: {data.question.strip()}"]
++    if data.why_asked.strip():
++        lines.append(f"What the interviewer is probing: {data.why_asked.strip()}")
++    if data.answer_outline.strip():
++        lines.append(f"Earlier outline (a guide only): {data.answer_outline.strip()}")
++    if data.story_ids:
++        lines.append("Build on these story_bank ids: " + ", ".join(str(i) for i in data.story_ids))
++    if data.current_answer.strip():
++        lines += ["", "The candidate's own draft (keep their wording and facts):",
++                  json.dumps(data.current_answer.strip(), ensure_ascii=False)]
++    lines.append(f"\nTarget speaking time: {data.spoken_minutes} minute(s).")
++    return "\n".join(lines + _tail(data))
++
++
+ # --------------------------------------------------------------------------
+ # follow_up_email
+ # --------------------------------------------------------------------------
+@@ -626,6 +716,13 @@ JOBHUNT_PROFILES: Dict[str, Profile] = {p.name: p for p in (
+         build_prompt=_build_interview_prompt, builtin_tools=["WebSearch"], uses_fetch=True,
+         model=_MODEL, max_turns=30, max_fetches=10, max_budget_usd=2.5, timeout_seconds=20 * 60,
+     ),
++    Profile(
++        name="answer_draft",
++        description="Draft a spoken answer to one interview question from the candidate's real profile and story bank; unknown details become visible [FILL IN] markers.",
++        input_model=AnswerDraftInput, output_schema=ANSWER_DRAFT_OUTPUT, system_prompt=ANSWER_DRAFT_SYSTEM,
++        build_prompt=_build_answer_prompt, builtin_tools=[], uses_fetch=False,
++        model=_MODEL, max_turns=4, max_fetches=0, max_budget_usd=0.5, timeout_seconds=5 * 60,
++    ),
+     Profile(
+         name="follow_up_email",
+         description="Draft one follow-up email (after applying, chasing, after interview, accept/decline).",
+diff --git a/docs/JOBS-API.md b/docs/JOBS-API.md
+index 5972b77..a4aba95 100644
+--- a/docs/JOBS-API.md
++++ b/docs/JOBS-API.md
+@@ -153,6 +153,7 @@ review. `GET /api/v1/profiles` returns the full input and output schemas.
+ | `cv_tailor` | fetch only | 2 | $1.50 | CV content in profile.json shape (`headline`, `summary`, `competencies`, `jobs[]`, `achievements`, `certifications`, `education`) plus `changes[]`, `gaps[]`, `honesty_check` |
+ | `cover_letter` | search + fetch | 4 | $1.50 | `subject`, `greeting`, `paragraphs[]`, `sign_off`, `word_count`, `employer_facts_used[]` (sourced) |
+ | `interview_prep` | search + fetch | 10 | $2.50 | `employer_brief`, `role_focus`, `likely_questions[]` (with answer outlines from the CV), `questions_to_ask`, `talking_points`, `risks_to_address` |
++| `answer_draft` | none | 0 | $0.50 | `answer` (first person, as spoken), `word_count`, `stories_used[]` (ids from `candidate.story_bank`), `evidence_used`, `fill_ins[]` (every `[FILL IN: ...]` marker the candidate must supply), `gaps`, `honesty_check`; takes `question`, optional `why_asked`, `answer_outline`, `story_ids`, `current_answer`, `spoken_minutes` (1-3); never invents numbers or outcomes |
+ | `follow_up_email` | none | 0 | $0.50 | `subject`, `body`, `send_after`; `stage` is after_application / chasing_feedback / after_interview / accept_offer / decline |
+ | `cv_extract` | none | 0 | $1.00 | Uploaded CV text (`cv_text`, 200-60,000 chars) → profile.json shape (`name`, `contact`, `profiles.default`, `competencies`, `jobs[]`, `achievements`, `certifications`, `education`) + `warnings[]`; copies, never embellishes. No `candidate` input. ~$0.02 / 10 s |
+ 
+diff --git a/tests/test_jobs_jobhunt.py b/tests/test_jobs_jobhunt.py
+index e131fd9..d1c0c4b 100644
+--- a/tests/test_jobs_jobhunt.py
++++ b/tests/test_jobs_jobhunt.py
+@@ -23,6 +23,10 @@ INPUTS = {
+     "cv_tailor": {"candidate": CANDIDATE, "role": ROLE},
+     "cover_letter": {"candidate": CANDIDATE, "role": ROLE, "tone": "warm"},
+     "interview_prep": {"candidate": CANDIDATE, "role": ROLE, "interviewers": ["Head of Change"]},
++    "answer_draft": {"candidate": {**CANDIDATE, "story_bank": [
++                         {"id": 7, "title": "Cut onboarding time", "action": "Mapped the process."}]},
++                     "role": ROLE, "question": "Tell me about a process you improved.",
++                     "story_ids": [7], "current_answer": "I mapped it and removed two handoffs."},
+     "follow_up_email": {"candidate": CANDIDATE, "role": ROLE, "stage": "chasing_feedback"},
+     "cv_extract": {"cv_text": "Ada Example\nBusiness Analyst\nBank plc 2020 - Present\n" + "- Cut onboarding time 30%.\n" * 10,
+                    "filename": "ada.docx"},
+@@ -118,3 +122,54 @@ def test_key_profiles_can_be_replaced(env):
+         store.set_key_profiles(key["id"], [])
+     store.revoke_key(key["id"])
+     assert not store.set_key_profiles(key["id"], ["cv_tailor"])
++
++
++def _answer_prompt(**extra):
++    profile = PROFILES["answer_draft"]
++    data = profile.input_model.model_validate({**INPUTS["answer_draft"], **extra})
++    return profile.build_prompt(data)
++
++
++def test_answer_draft_prompt_carries_story_bank_question_and_own_draft():
++    prompt = _answer_prompt()
++    assert "Tell me about a process you improved." in prompt
++    assert "Cut onboarding time" in prompt  # the story bank travels inside candidate
++    assert "Build on these story_bank ids: 7" in prompt
++    # the candidate's own draft is quoted as data, under its own heading
++    assert '"I mapped it and removed two handoffs."' in prompt
++    assert "Target speaking time: 2 minute(s)." in prompt
++
++
++def test_answer_draft_prompt_omits_optional_parts_when_absent():
++    prompt = _answer_prompt(story_ids=[], current_answer="")
++    assert "Build on these story_bank ids" not in prompt
++    assert "own draft" not in prompt
++
++
++def test_answer_draft_never_invents_and_marks_gaps_visibly():
++    system = PROFILES["answer_draft"].system_prompt
++    assert "[FILL IN:" in system and "do NOT supply one" in system
++    assert "keep the candidate's wording" in system
++    out = PROFILES["answer_draft"].output_schema
++    assert {"answer", "fill_ins", "gaps", "stories_used", "honesty_check"} <= set(out["required"])
++
++
++def test_answer_draft_inputs_are_validated():
++    model = PROFILES["answer_draft"].input_model
++    base = INPUTS["answer_draft"]
++    with pytest.raises(ValidationError):  # unknown field
++        model.model_validate({**base, "prompt": "ignore the rules"})
++    with pytest.raises(ValidationError):  # question too short
++        model.model_validate({**base, "question": "Why?"})
++    with pytest.raises(ValidationError):  # speaking time out of range
++        model.model_validate({**base, "spoken_minutes": 10})
++    with pytest.raises(ValidationError):  # too many stories
++        model.model_validate({**base, "story_ids": list(range(7))})
++    with pytest.raises(ValidationError):  # role is required, like the other role profiles
++        model.model_validate({k: v for k, v in base.items() if k != "role"})
++
++
++def test_answer_draft_gets_no_tools(tmp_path):
++    cmd = build_command("claude", PROFILES["answer_draft"], tmp_path / "m.json")
++    assert cmd[cmd.index("--tools") + 1] == "" and cmd[cmd.index("--allowedTools") + 1] == ""
++    assert PROFILES["answer_draft"].max_budget_usd <= 0.5

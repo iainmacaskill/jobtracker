@@ -101,10 +101,29 @@ def add_question(
     return int(cur.lastrowid)
 
 
+# Markers left on purpose by the story drafter ([add: ...]) and by the server's
+# answer_draft ([FILL IN: ...]) where a fact is still missing.
+_PLACEHOLDER = re.compile(r"\[(?:FILL IN|add)\b[^\]]*\]", re.IGNORECASE)
+
+
+def has_placeholders(text: str | None) -> bool:
+    return bool(_PLACEHOLDER.search(text or ""))
+
+
 def update_question(conn: sqlite3.Connection, question_id: int, **fields: str) -> None:
     cols = [c for c in _QUESTION_EDITABLE if c in fields]
     if "status" in cols and fields["status"] not in QUESTION_STATUSES:
         raise ValueError(f"status must be one of {QUESTION_STATUSES}")
+    if fields.get("status") == "Ready":
+        if "my_answer" in fields:
+            answer = fields["my_answer"]
+        else:
+            row = conn.execute(
+                "SELECT my_answer FROM prep_questions WHERE id = ?", (question_id,)
+            ).fetchone()
+            answer = row["my_answer"] if row else ""
+        if has_placeholders(answer):
+            raise ValueError("Fill in the [FILL IN] / [add] gaps before marking it Ready.")
     if not cols:
         return
     conn.execute(
@@ -413,3 +432,112 @@ def story_bank_for_server(conn: sqlite3.Connection) -> list[dict]:
         item = {k: s[k] for k in ("id", *STORY_FIELDS) if s[k]}
         out.append(item)
     return out
+
+
+# --- Claude answer drafts (server profile ``answer_draft``) --------------------
+
+def answer_draft_payload(
+    conn: sqlite3.Connection, question_id: int, candidate: dict, role: dict,
+    *, spoken_minutes: int = 2,
+) -> dict:
+    """Input for an ``answer_draft`` job: the question, your own draft and linked stories.
+
+    ``candidate`` should already carry the story bank (``claude_jobs.with_story_bank``).
+    Only stories you allowed to leave this machine can be named, and the server's
+    length limits are respected. The server rejects unknown fields, so nothing else goes in.
+    """
+    q = conn.execute("SELECT * FROM prep_questions WHERE id = ?", (question_id,)).fetchone()
+    if q is None:
+        raise ValueError("Unknown question.")
+    payload: dict[str, Any] = {
+        "candidate": candidate,
+        "role": role,
+        "question": q["question"][:500],
+        "spoken_minutes": max(1, min(3, int(spoken_minutes))),
+    }
+    for key, field, limit in (("why_asked", "why_asked", 500),
+                              ("answer_outline", "answer_outline", 2000),
+                              ("current_answer", "my_answer", 4000)):
+        if (q[field] or "").strip():
+            payload[key] = q[field].strip()[:limit]
+    ids = [s["id"] for s in stories_for_question(conn, question_id) if s["share_with_server"]]
+    if ids:
+        payload["story_ids"] = ids[:6]
+    return payload
+
+
+def record_draft_job(conn: sqlite3.Connection, ai_id: int, question_id: int) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO prep_drafts (ai_job_id, question_id) VALUES (?, ?)",
+        (ai_id, question_id),
+    )
+
+
+def list_answer_drafts(conn: sqlite3.Connection, role_id: int) -> list[dict]:
+    """Answer-draft jobs for this role's questions, newest first, with the result decoded."""
+    rows = conn.execute(
+        """SELECT a.id, a.status, a.progress, a.error, a.result, a.applied_at,
+                  a.created_at, q.id AS question_id, q.question
+           FROM prep_drafts d
+           JOIN ai_jobs a ON a.id = d.ai_job_id
+           JOIN prep_questions q ON q.id = d.question_id
+           WHERE q.role_id = ? ORDER BY a.id DESC""",
+        (role_id,),
+    ).fetchall()
+    out = []
+    for r in rows:
+        item = dict(r)
+        try:
+            item["result"] = json.loads(item["result"]) if item["result"] else None
+        except ValueError:
+            item["result"] = None
+        out.append(item)
+    return out
+
+
+def apply_answer_draft(conn: sqlite3.Connection, ai_id: int) -> dict[str, Any]:
+    """Add a finished draft under the question's answer. Never replaces your text.
+
+    The draft keeps its ``[FILL IN: ...]`` markers, so the question cannot be marked
+    Ready until you have supplied the real details. Each draft is applied once.
+    """
+    row = conn.execute(
+        """SELECT a.status, a.result, a.applied_at, d.question_id
+           FROM ai_jobs a JOIN prep_drafts d ON d.ai_job_id = a.id WHERE a.id = ?""",
+        (ai_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError("That is not an answer draft.")
+    if row["applied_at"]:
+        raise ValueError("That draft was already added.")
+    if row["status"] != "succeeded" or not row["result"]:
+        raise ValueError("That draft has no result yet.")
+    try:
+        result = json.loads(row["result"])
+        draft = (result.get("answer") or "").strip()
+    except (ValueError, AttributeError) as exc:
+        raise ValueError("The stored result is not valid.") from exc
+    if not draft:
+        raise ValueError("The draft is empty.")
+
+    qid = int(row["question_id"])
+    current = conn.execute(
+        "SELECT my_answer, status FROM prep_questions WHERE id = ?", (qid,)
+    ).fetchone()
+    mine = (current["my_answer"] or "").strip()
+    merged = f"{mine}\n\n---\nClaude draft:\n{draft}" if mine else draft
+    status = current["status"]
+    if status == "Needs work" or has_placeholders(merged):
+        status = "Drafted"
+    update_question(conn, qid, my_answer=merged, status=status)
+    conn.execute(
+        "UPDATE ai_jobs SET applied_at = datetime('now'), applied_note = ? WHERE id = ?",
+        ("Added to the question's answer", ai_id),
+    )
+    known = {s["id"] for s in list_stories(conn)}
+    unknown = [i for i in result.get("stories_used") or [] if i not in known]
+    return {
+        "question_id": qid,
+        "fill_ins": len(result.get("fill_ins") or []),
+        "unknown_story_ids": unknown,
+    }

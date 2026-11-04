@@ -41,6 +41,7 @@ LABELS = {
     "cv_tailor": "Tailored CV",
     "cover_letter": "Cover letter",
     "interview_prep": "Interview prep",
+    "answer_draft": "Answer draft",
     "follow_up_email": "Follow-up email",
     "cv_extract": "Profile from CV",
 }

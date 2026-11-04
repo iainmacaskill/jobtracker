@@ -293,3 +293,123 @@ def test_with_story_bank_noop_when_empty_and_drops_to_fit(conn):
     assert included + dropped == 5 and dropped > 0
     assert len(json.dumps(merged)) <= 1500
     assert cj.with_story_bank(conn, candidate, limit=10) == (candidate, 0, 5)
+
+
+# --- Claude answer drafts ----------------------------------------------------
+
+SERVER_FIELDS = {"candidate", "role", "question", "why_asked", "answer_outline", "story_ids",
+                 "current_answer", "spoken_minutes", "locale", "notes"}  # server rejects others
+
+
+def _draft_job(conn, role_id, question_id, result=None, status="succeeded"):
+    cur = conn.execute(
+        "INSERT INTO ai_jobs (role_id, profile, status, result) VALUES (?, 'answer_draft', ?, ?)",
+        (role_id, status, json.dumps(result) if result is not None else None),
+    )
+    prep.record_draft_job(conn, cur.lastrowid, question_id)
+    conn.commit()
+    return cur.lastrowid
+
+
+def test_placeholders_block_ready_but_not_drafted(conn):
+    rid = _role(conn)
+    qid = prep.add_question(conn, rid, "Tell me about a hard bug")
+    assert prep.has_placeholders("It took [FILL IN: how long] to fix.")
+    assert prep.has_placeholders("Result: [add: result]")
+    assert not prep.has_placeholders("It took two days to fix.")
+    # in the same call
+    with pytest.raises(ValueError, match="gaps"):
+        prep.update_question(conn, qid, my_answer="Took [FILL IN: time]", status="Ready")
+    prep.update_question(conn, qid, my_answer="Took [FILL IN: time]", status="Drafted")
+    # already stored in the row
+    with pytest.raises(ValueError, match="gaps"):
+        prep.update_question(conn, qid, status="Ready")
+    prep.update_question(conn, qid, my_answer="Took two days.", status="Ready")
+    assert prep.readiness(conn, rid) == (1, 1)
+
+
+def test_answer_draft_payload_only_sends_what_the_server_accepts(conn):
+    rid = _role(conn)
+    qid = prep.add_question(conn, rid, "Q" * 600, why_asked="W" * 700, my_answer="mine")
+    shared = _story(conn, "Shared")
+    private = _story(conn, "Private", share_with_server=False)
+    prep.set_question_stories(conn, qid, [shared, private])
+    payload = prep.answer_draft_payload(
+        conn, qid, {"name": "T"}, {"title": "Dev"}, spoken_minutes=9
+    )
+    assert set(payload) <= SERVER_FIELDS
+    assert len(payload["question"]) == 500 and len(payload["why_asked"]) == 500
+    assert payload["current_answer"] == "mine"
+    assert payload["story_ids"] == [shared]  # the private story never leaves
+    assert payload["spoken_minutes"] == 3
+    assert "answer_outline" not in payload  # empty optional parts are left out
+
+
+def test_answer_draft_payload_rejects_unknown_question(conn):
+    with pytest.raises(ValueError):
+        prep.answer_draft_payload(conn, 999, {"name": "T"}, {"title": "Dev"})
+
+
+DRAFT = {
+    "answer": "I rebuilt invoicing. It cut load time by [FILL IN: the real figure].",
+    "stories_used": [1, 99], "fill_ins": [{"marker": "[FILL IN: the real figure]", "needed": "x"}],
+    "gaps": [], "honesty_check": "From the story.", "word_count": 12, "evidence_used": [],
+}
+
+
+def test_apply_draft_appends_under_my_answer_and_blocks_ready(conn):
+    rid = _role(conn)
+    qid = prep.add_question(conn, rid, "Walk us through a PHP app", my_answer="My words.")
+    prep.update_question(conn, qid, status="Ready")
+    _story(conn, "Rebuilt invoicing")  # id 1
+    ai_id = _draft_job(conn, rid, qid, DRAFT)
+    info = prep.apply_answer_draft(conn, ai_id)
+    conn.commit()
+    assert info == {"question_id": qid, "fill_ins": 1, "unknown_story_ids": [99]}
+    q = prep.list_questions(conn, rid)[0]
+    assert q["my_answer"].startswith("My words.\n\n---\nClaude draft:\nI rebuilt invoicing.")
+    assert q["status"] == "Drafted"  # a Ready answer with gaps is demoted
+    with pytest.raises(ValueError, match="already added"):
+        prep.apply_answer_draft(conn, ai_id)
+    assert prep.list_answer_drafts(conn, rid)[0]["applied_at"]
+
+
+def test_apply_draft_into_empty_answer_and_status(conn):
+    rid = _role(conn)
+    qid = prep.add_question(conn, rid, "Why PASS?")
+    clean = {**DRAFT, "answer": "Because the stack fits.", "fill_ins": []}
+    prep.apply_answer_draft(conn, _draft_job(conn, rid, qid, clean))
+    q = prep.list_questions(conn, rid)[0]
+    assert q["my_answer"] == "Because the stack fits."
+    assert q["status"] == "Drafted"  # from Needs work
+
+
+@pytest.mark.parametrize("kwargs, message", [
+    ({"status": "running", "result": None}, "no result yet"),
+    ({"result": {"answer": "  "}}, "empty"),
+])
+def test_apply_draft_rejects_unfinished_or_empty(conn, kwargs, message):
+    rid = _role(conn)
+    qid = prep.add_question(conn, rid, "Why PASS?")
+    with pytest.raises(ValueError, match=message):
+        prep.apply_answer_draft(conn, _draft_job(conn, rid, qid, **kwargs))
+
+
+def test_apply_draft_rejects_non_draft_job(conn):
+    rid = _role(conn)
+    with pytest.raises(ValueError, match="not an answer draft"):
+        prep.apply_answer_draft(conn, _ai_job(conn, rid))
+
+
+def test_draft_links_cascade_with_the_question_and_claude_label_exists(conn):
+    import claude_jobs as cj
+
+    rid = _role(conn)
+    qid = prep.add_question(conn, rid, "Why PASS?")
+    _draft_job(conn, rid, qid, DRAFT)
+    assert len(prep.list_answer_drafts(conn, rid)) == 1
+    prep.delete_question(conn, qid)
+    conn.commit()
+    assert prep.list_answer_drafts(conn, rid) == []
+    assert conn.execute("SELECT COUNT(*) FROM prep_drafts").fetchone()[0] == 0
+    assert cj.LABELS["answer_draft"] == "Answer draft"

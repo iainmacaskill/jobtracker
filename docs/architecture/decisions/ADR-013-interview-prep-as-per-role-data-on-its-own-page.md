@@ -47,6 +47,25 @@ would put personal data at rest on a public deployment and break the stateless d
 and cannot return a story id. A typed `stories` input and story-aware output would
 need a small change to `claude_web/jobs/jobhunt.py`; that is left until practice mode.
 
+## Direct answer drafts (Phase 2b)
+
+Outlines are not answers, so a second server profile, `answer_draft`, writes a spoken
+first-person answer to one question from your profile and linked stories. The rule that
+makes it safe to rehearse: it must not invent. Any number, outcome, tool or client that
+is not in your data comes back as a visible `[FILL IN: ...]` marker, listed in
+`fill_ins`, and gaps the profile cannot answer are reported in `gaps`. If you give it
+your own draft, your wording and facts win.
+
+On the tracker side: **Draft with Claude** on each question, a *Claude drafts* tab, and
+**Add to my answer**, which appends under your text and never replaces it. The server
+rejects unknown input fields, so the question id is kept in `prep_drafts` instead of in
+the job. A question cannot be marked **Ready** while its answer still contains a
+`[FILL IN]` or `[add]` marker, so a draft cannot be rehearsed as finished with gaps in it.
+
+The profile is delivered as `docs/server/claude-web-answer_draft.patch`, not deployed.
+Until the server offers it the button is disabled. Chosen over a server-side answer
+store for the reasons in the story-bank section.
+
 ## Planned: practice mode (Phase 3)
 
 Questions one at a time with your typed answer, a rule-based offline checklist
