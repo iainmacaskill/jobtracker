@@ -306,10 +306,15 @@ def _role_tools(df: pd.DataFrame) -> None:
         key="ai_iv",
         help="Employer research, likely questions with answer outlines. ~3-8 min.",
     ):
+        with db.connect() as conn:
+            iv_candidate, _, n_dropped = cj.with_story_bank(conn, base["candidate"])
+        if n_dropped:
+            st.warning(f"{n_dropped} stor(ies) left out: the profile would be too large to send.")
         _submit(
             "interview_prep",
             {
                 **base,
+                "candidate": iv_candidate,
                 "interview_format": st.session_state.get("ai_iv_format", ""),
                 "interviewers": _lines(st.session_state.get("ai_iv_people", ""))[:6],
             },

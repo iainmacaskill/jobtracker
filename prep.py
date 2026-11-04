@@ -272,3 +272,144 @@ def export_markdown(conn: sqlite3.Connection, role_id: int) -> str:
                     out.append(f"**{label}:** {q[key]}")
             out.append("")
     return "\n".join(out).rstrip() + "\n"
+
+
+# --- story bank (phase 2) ---------------------------------------------------
+# Stories are yours: nothing in this section generates text. ``compose_answer``
+# only rearranges what you wrote, so an answer built from it cannot claim more.
+
+STORY_FIELDS = ("title", "employer", "situation", "task", "action", "result", "figures", "tags")
+_STORY_STAR = (("Situation", "situation"), ("Task", "task"), ("Action", "action"),
+               ("Result", "result"))
+STORY_BANK_KEY = "story_bank"  # key in the ``candidate`` dict sent to the server
+
+
+def list_stories(conn: sqlite3.Connection, tag: str | None = None) -> list[dict]:
+    rows = [dict(r) for r in conn.execute("SELECT * FROM stories ORDER BY title COLLATE NOCASE")]
+    if tag:
+        want = _norm(tag)
+        rows = [r for r in rows if want in {_norm(t) for t in (r["tags"] or "").split(",")}]
+    return rows
+
+
+def add_story(conn: sqlite3.Connection, title: str, **fields: Any) -> int | None:
+    """Add a story; returns its id, or None if blank or the title already exists."""
+    title = (title or "").strip()
+    if not title:
+        return None
+    if _norm(title) in {_norm(s["title"]) for s in list_stories(conn)}:
+        return None
+    cols = [c for c in STORY_FIELDS[1:] if (fields.get(c) or "").strip()]
+    share = 0 if fields.get("share_with_server") is False else 1
+    cur = conn.execute(
+        f"INSERT INTO stories (title, share_with_server{''.join(', ' + c for c in cols)}) "
+        f"VALUES (?, ?{', ?' * len(cols)})",
+        [title, share, *(fields[c].strip() for c in cols)],
+    )
+    return int(cur.lastrowid)
+
+
+def update_story(conn: sqlite3.Connection, story_id: int, **fields: Any) -> None:
+    cols = [c for c in (*STORY_FIELDS, "share_with_server") if c in fields]
+    if "title" in cols and not (fields["title"] or "").strip():
+        raise ValueError("A story needs a title.")
+    if not cols:
+        return
+    values = [int(bool(fields[c])) if c == "share_with_server" else (fields[c] or "").strip()
+              for c in cols]
+    conn.execute(
+        f"UPDATE stories SET {', '.join(f'{c} = ?' for c in cols)}, "
+        "updated_at = datetime('now') WHERE id = ?",
+        [*values, story_id],
+    )
+
+
+def delete_story(conn: sqlite3.Connection, story_id: int) -> None:
+    conn.execute("DELETE FROM stories WHERE id = ?", (story_id,))
+
+
+def set_question_stories(conn: sqlite3.Connection, question_id: int, story_ids: list[int]) -> None:
+    """Replace the stories linked to a question."""
+    conn.execute("DELETE FROM question_stories WHERE question_id = ?", (question_id,))
+    conn.executemany(
+        "INSERT OR IGNORE INTO question_stories (question_id, story_id) VALUES (?, ?)",
+        [(question_id, int(s)) for s in story_ids],
+    )
+
+
+def stories_for_question(conn: sqlite3.Connection, question_id: int) -> list[dict]:
+    rows = conn.execute(
+        """SELECT s.* FROM stories s JOIN question_stories qs ON qs.story_id = s.id
+           WHERE qs.question_id = ? ORDER BY s.title COLLATE NOCASE""",
+        (question_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def compose_answer(stories: list[dict]) -> str:
+    """A first draft of an answer, laid out as STAR from the stories you linked.
+
+    Uses your own words, unchanged. Empty parts are left as a visible ``[add: ...]``
+    prompt, never filled in, so you can see exactly what is still missing.
+    """
+    blocks = []
+    for s in stories:
+        lines = [s["title"]]
+        for label, key in _STORY_STAR:
+            value = (s.get(key) or "").strip()
+            lines.append(f"{label}: {value}" if value else f"{label}: [add: {label.lower()}]")
+        if (s.get("figures") or "").strip():
+            lines.append(f"Figures: {s['figures'].strip()}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+def story_gaps(story: dict) -> list[str]:
+    """STAR parts still empty, plus 'figures' when there are none: what to add next."""
+    gaps = [label.lower() for label, key in _STORY_STAR if not (story.get(key) or "").strip()]
+    if not (story.get("figures") or "").strip():
+        gaps.append("figures")
+    return gaps
+
+
+def export_stories_json(conn: sqlite3.Connection, *, shared_only: bool = False) -> str:
+    """The bank as JSON, to copy to another machine or back it up."""
+    stories = list_stories(conn)
+    if shared_only:
+        stories = [s for s in stories if s["share_with_server"]]
+    keep = ("id", *STORY_FIELDS)
+    return json.dumps(
+        {"version": 1, "stories": [{k: s[k] for k in keep} for s in stories]},
+        ensure_ascii=False, indent=2,
+    )
+
+
+def import_stories_json(conn: sqlite3.Connection, text: str) -> dict[str, int]:
+    """Add stories from ``export_stories_json`` output. Existing titles are kept as they are."""
+    try:
+        data = json.loads(text)
+        items = data["stories"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValueError("That is not a story bank export.") from exc
+    added = skipped = 0
+    for item in items:
+        if not isinstance(item, dict):
+            skipped += 1
+            continue
+        fields = {k: item.get(k) or "" for k in STORY_FIELDS[1:]}
+        if add_story(conn, item.get("title", ""), **fields) is None:
+            skipped += 1
+        else:
+            added += 1
+    return {"stories_added": added, "stories_skipped": skipped}
+
+
+def story_bank_for_server(conn: sqlite3.Connection) -> list[dict]:
+    """The stories you allowed to leave this machine, trimmed to what a prompt needs."""
+    out = []
+    for s in list_stories(conn):
+        if not s["share_with_server"]:
+            continue
+        item = {k: s[k] for k in ("id", *STORY_FIELDS) if s[k]}
+        out.append(item)
+    return out

@@ -28,6 +28,7 @@ import cover_letter
 import cv_builder
 import cv_upload
 import db
+import prep
 import screening_queue
 
 ACTIVE = ("queued", "running")
@@ -135,6 +136,33 @@ def load_candidate() -> tuple[dict | None, str]:
     if cv:
         return {"cv_text": cv["text"][:38_000]}, "cv"
     return None, ""
+
+
+# The server rejects a candidate over this many characters of JSON.
+_CANDIDATE_LIMIT = 40_000
+
+
+def with_story_bank(
+    conn: sqlite3.Connection, candidate: dict, limit: int = _CANDIDATE_LIMIT
+) -> tuple[dict, int, int]:
+    """``candidate`` plus the stories you allowed to leave this machine.
+
+    The server treats everything in ``candidate`` as true facts about you, so only
+    stories you wrote are added, under ``story_bank`` (no leading underscore: those
+    keys are stripped). If they would push the payload over the server's limit, the
+    last ones are dropped. Returns ``(candidate, included, dropped)``; the input is
+    never modified.
+    """
+    stories = prep.story_bank_for_server(conn)
+    if not stories:
+        return candidate, 0, 0
+    kept = list(stories)
+    while kept:
+        merged = {**candidate, prep.STORY_BANK_KEY: kept}
+        if len(json.dumps(merged, ensure_ascii=False)) <= limit:
+            return merged, len(kept), len(stories) - len(kept)
+        kept.pop()
+    return candidate, 0, len(stories)
 
 
 def text(value: Any) -> str:

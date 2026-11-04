@@ -138,6 +138,30 @@ CREATE TABLE IF NOT EXISTS interview_rounds (
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_interview_rounds_role ON interview_rounds(role_id);
+
+-- Story bank (ADR-013, phase 2). Your real examples, reused across roles. Only what
+-- you type is stored: nothing here is ever generated, so an answer built from a
+-- story can only state what you wrote.
+CREATE TABLE IF NOT EXISTS stories (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            TEXT NOT NULL,
+    employer         TEXT,                     -- which job it comes from
+    situation        TEXT,
+    task             TEXT,
+    action           TEXT,
+    result           TEXT,
+    figures          TEXT,                     -- real numbers only, in your words
+    tags             TEXT,                     -- comma-separated: security, laravel, leadership
+    share_with_server INTEGER NOT NULL DEFAULT 1,  -- include when jobs go to the Claude server
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS question_stories (
+    question_id INTEGER NOT NULL REFERENCES prep_questions(id) ON DELETE CASCADE,
+    story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    PRIMARY KEY (question_id, story_id)
+);
 """
 
 

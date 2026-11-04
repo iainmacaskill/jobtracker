@@ -57,6 +57,9 @@ with db.connect() as conn:
     notes = prep.get_notes(conn, rid)
     rounds = prep.list_rounds(conn, rid)
     full_role = prep.get_role(conn, rid) or {}
+    bank = prep.list_stories(conn)
+    linked = {q['id']: [s['id'] for s in prep.stories_for_question(conn, q['id'])]
+              for q in questions}
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Questions ready", f"{ready} / {total}")
@@ -115,11 +118,30 @@ with tab_q:
                     "Status", prep.QUESTION_STATUSES,
                     index=prep.QUESTION_STATUSES.index(q["status"]),
                 )
-                save, drop = st.columns(2)
+                picked = st.multiselect(
+                    "Stories to use (from your Story bank)",
+                    [s["id"] for s in bank],
+                    default=linked.get(q["id"], []),
+                    format_func=lambda sid: next(s["title"] for s in bank if s["id"] == sid),
+                    help="Your own examples. Add them on the Story bank page.",
+                )
+                save, draft, drop = st.columns(3)
                 if save.form_submit_button("Save", type="primary"):
                     with db.connect() as conn:
                         prep.update_question(conn, q["id"], my_answer=answer, status=status)
+                        prep.set_question_stories(conn, q["id"], picked)
                     _toast("Saved.")
+                    st.rerun()
+                if draft.form_submit_button("Draft from stories"):
+                    with db.connect() as conn:
+                        prep.set_question_stories(conn, q["id"], picked)
+                        chosen = prep.stories_for_question(conn, q["id"])
+                        text = prep.compose_answer(chosen)
+                        if text:
+                            # Never overwrite your wording: add the draft underneath.
+                            merged = f"{answer.strip()}\n\n---\n{text}" if answer.strip() else text
+                            prep.update_question(conn, q["id"], my_answer=merged, status=status)
+                    _toast("Draft added from your stories." if text else "Pick a story first.")
                     st.rerun()
                 if drop.form_submit_button("Delete question"):
                     with db.connect() as conn:
