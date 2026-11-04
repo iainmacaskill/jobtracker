@@ -73,3 +73,36 @@ def generate_cover_letter(job: dict, out_dir: Path | str | None = None) -> Path:
 
     doc.save(str(path))
     return path
+
+
+def write_ai_cover_letter(job: dict, letter: dict, out_dir: Path | str | None = None) -> Path:
+    """Save a cover letter Claude drafted (the claude-web ``cover_letter`` result).
+
+    Uses the same name as the template draft plus a ``(Claude)`` suffix, so a
+    template you have already edited is never overwritten.
+    """
+    out_dir = Path(out_dir) if out_dir else config.COVER_LETTER_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    template = cover_letter_path(job, out_dir)
+    path = template.with_name(f"{template.stem} (Claude){template.suffix}")
+
+    doc = Document()
+    doc.add_paragraph(dt.date.today().strftime("%d %B %Y"))
+    if letter.get("subject"):
+        doc.add_paragraph(f"Re: {letter['subject']}")
+    doc.add_paragraph("")
+    doc.add_paragraph(letter.get("greeting") or "Dear Hiring Manager,")
+    for para in letter.get("paragraphs") or []:
+        doc.add_paragraph(para)
+    doc.add_paragraph("")
+    for line in (letter.get("sign_off") or "Yours sincerely,").splitlines():
+        doc.add_paragraph(line)
+    doc.save(str(path))
+    return path
+
+
+def letter_text(letter: dict) -> str:
+    """The drafted letter as plain text, for previewing or pasting into an email."""
+    parts = [letter.get("greeting") or "", *(letter.get("paragraphs") or []),
+             letter.get("sign_off") or ""]
+    return "\n\n".join(p for p in parts if p)

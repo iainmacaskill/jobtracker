@@ -1,0 +1,38 @@
+{
+  "project": "jobtracker",
+  "language": "python",
+  "source_root": ".",
+  "exclude": ["tests/**", ".venv/**", "resumes/**"],
+  "layers": {
+    "config": ["config"],
+    "data": ["db", "normalize"],
+    "ingest": ["import_jobs", "migrate", "seed", "tracker_add"],
+    "documents": ["cv_builder", "screening_cv", "interview_cv", "cover_letter", "cv_preview"],
+    "queues": ["screening_queue", "contact_queue", "followup_queue"],
+    "ui": ["app"]
+  },
+  "entrypoints": {"streamlit": ["app.py"]},
+  "schema": {"type": "python", "call": "db:init_db"},
+  "states": {
+    "module": "db",
+    "const": "STATUSES",
+    "field": "status",
+    "transitions": [
+      ["Found", "Draft CV"],
+      ["Found", "Draft CV & Cover Letter"],
+      ["Draft CV", "CV Drafted"],
+      ["Draft CV & Cover Letter", "CV Drafted"],
+      ["CV Drafted", "Applied"],
+      ["Applied", "Shortlisted"],
+      ["Shortlisted", "Interview"],
+      ["Interview", "Offer"],
+      ["*", "Pass"],
+      ["*", "Rejected"],
+      ["*", "Expired"]
+    ],
+    "notes": {
+      "archived": "Orthogonal boolean flag, not a status: ended/closed roles are hidden from the main grid but kept (ADR-011).",
+      "Pass / Rejected / Expired": "Terminal outcomes reachable from any active status."
+    }
+  }
+}

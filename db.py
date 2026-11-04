@@ -78,6 +78,97 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- Helps importers avoid re-inserting roles already logged.
 CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source_job_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+
+-- Work sent to a Claude Code Web server (claude_jobs.py, ADR-012). Optional: stays
+-- empty unless CLAUDE_WEB_API_KEY is set.
+CREATE TABLE IF NOT EXISTS ai_jobs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    remote_id    TEXT UNIQUE,                  -- job id on the claude-web server
+    role_id      INTEGER,                      -- jobs.id it is about (NULL: search / CV)
+    profile      TEXT NOT NULL,                -- cv_tailor, cover_letter, job_search, ...
+    status       TEXT NOT NULL,                -- queued / running / succeeded / failed / cancelled
+    progress     TEXT,                         -- what the agent is doing now
+    input        TEXT,                         -- JSON sent (kept so a run can be repeated)
+    result       TEXT,                         -- JSON returned
+    error        TEXT,
+    cost_usd     REAL,
+    applied_at   TEXT,                         -- when its result was written back (files / columns)
+    applied_note TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_jobs(status);
+
+-- Interview prep (prep.py, ADR-013). All three cascade when a role is deleted.
+CREATE TABLE IF NOT EXISTS prep_notes (
+    role_id          INTEGER PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+    employer         TEXT,                     -- what you know about them (markdown)
+    role_focus       TEXT,                     -- what they need to hear, one per line
+    questions_to_ask TEXT,                     -- one per line
+    talking_points   TEXT,                     -- one per line
+    risks            TEXT,                     -- gaps to handle honestly, one per line
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS prep_questions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    role_id       INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    question      TEXT NOT NULL,
+    why_asked     TEXT,
+    answer_outline TEXT,
+    evidence      TEXT,                        -- what to draw on from your real experience
+    my_answer     TEXT,                        -- your own wording
+    status        TEXT NOT NULL DEFAULT 'Needs work',  -- Needs work / Drafted / Ready
+    source        TEXT NOT NULL DEFAULT 'manual',      -- manual / ai
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_prep_questions_role ON prep_questions(role_id);
+
+CREATE TABLE IF NOT EXISTS interview_rounds (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    role_id      INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    round_no     INTEGER NOT NULL DEFAULT 1,
+    scheduled_at TEXT,                         -- ISO date or datetime
+    format       TEXT,                         -- phone / video / on-site / technical test ...
+    interviewers TEXT,
+    notes        TEXT,                         -- after-the-fact notes
+    outcome      TEXT,                         -- free text: passed, waiting, rejected ...
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_interview_rounds_role ON interview_rounds(role_id);
+
+-- Story bank (ADR-013, phase 2). Your real examples, reused across roles. Only what
+-- you type is stored: nothing here is ever generated, so an answer built from a
+-- story can only state what you wrote.
+CREATE TABLE IF NOT EXISTS stories (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            TEXT NOT NULL,
+    employer         TEXT,                     -- which job it comes from
+    situation        TEXT,
+    task             TEXT,
+    action           TEXT,
+    result           TEXT,
+    figures          TEXT,                     -- real numbers only, in your words
+    tags             TEXT,                     -- comma-separated: security, laravel, leadership
+    share_with_server INTEGER NOT NULL DEFAULT 1,  -- include when jobs go to the Claude server
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Which prep question an answer_draft job was for. The server rejects unknown input
+-- fields, so the question id cannot travel with the job; it is recorded here instead.
+CREATE TABLE IF NOT EXISTS prep_drafts (
+    ai_job_id   INTEGER PRIMARY KEY,
+    question_id INTEGER NOT NULL REFERENCES prep_questions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS question_stories (
+    question_id INTEGER NOT NULL REFERENCES prep_questions(id) ON DELETE CASCADE,
+    story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    PRIMARY KEY (question_id, story_id)
+);
 """
 
 

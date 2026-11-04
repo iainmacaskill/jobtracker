@@ -1,0 +1,1660 @@
+{
+  "project": "jobtracker",
+  "language": "python",
+  "modules": [
+    {
+      "name": "app",
+      "path": "app.py",
+      "layer": "ui",
+      "doc": "Streamlit frontend for the local job application tracker.",
+      "loc": 689
+    },
+    {
+      "name": "config",
+      "path": "config.py",
+      "layer": "config",
+      "doc": "Central configuration.",
+      "loc": 51
+    },
+    {
+      "name": "contact_queue",
+      "path": "contact_queue.py",
+      "layer": "queues",
+      "doc": "Agent-side helper for the contact-resolver queue.",
+      "loc": 97
+    },
+    {
+      "name": "cover_letter",
+      "path": "cover_letter.py",
+      "layer": "documents",
+      "doc": "Generate a draft cover letter (.docx) for a tracked role.",
+      "loc": 75
+    },
+    {
+      "name": "cv_builder",
+      "path": "cv_builder.py",
+      "layer": "documents",
+      "doc": "Generate a first-draft CV (.docx) for a role from a local profile.",
+      "loc": 213
+    },
+    {
+      "name": "cv_preview",
+      "path": "cv_preview.py",
+      "layer": "documents",
+      "doc": "Render a generated CV (.docx) as Markdown for an in-app preview.",
+      "loc": 99
+    },
+    {
+      "name": "db",
+      "path": "db.py",
+      "layer": "data",
+      "doc": "SQLite data layer for the job application tracker.",
+      "loc": 164
+    },
+    {
+      "name": "followup_queue",
+      "path": "followup_queue.py",
+      "layer": "queues",
+      "doc": "Agent-side helper for the follow-up email queue.",
+      "loc": 113
+    },
+    {
+      "name": "import_jobs",
+      "path": "import_jobs.py",
+      "layer": "ingest",
+      "doc": "Import roles from an external SQLite database into the tracker.",
+      "loc": 98
+    },
+    {
+      "name": "interview_cv",
+      "path": "interview_cv.py",
+      "layer": "documents",
+      "doc": "Generate a styled \"interview\" CV — designed HTML rendered to PDF.",
+      "loc": 164
+    },
+    {
+      "name": "migrate",
+      "path": "migrate.py",
+      "layer": "ingest",
+      "doc": "Import a job-tracker spreadsheet into jobs.db (SQLite).",
+      "loc": 184
+    },
+    {
+      "name": "normalize",
+      "path": "normalize.py",
+      "layer": "data",
+      "doc": "Small, pure normalisation helpers shared by the importer and the skill entry",
+      "loc": 68
+    },
+    {
+      "name": "screening_cv",
+      "path": "screening_cv.py",
+      "layer": "documents",
+      "doc": "Generate an ATS-safe \"screening\" CV: plain, single-column, keyword-aligned.",
+      "loc": 146
+    },
+    {
+      "name": "screening_queue",
+      "path": "screening_queue.py",
+      "layer": "queues",
+      "doc": "Agent-side helper for the screening-CV queue.",
+      "loc": 50
+    },
+    {
+      "name": "seed",
+      "path": "seed.py",
+      "layer": "ingest",
+      "doc": "Load demo data into the tracker so a fresh install has something to show.",
+      "loc": 68
+    },
+    {
+      "name": "tracker_add",
+      "path": "tracker_add.py",
+      "layer": "ingest",
+      "doc": "Add or update roles in the tracker database from a script or the shell.",
+      "loc": 137
+    }
+  ],
+  "imports": [
+    {
+      "src": "app",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "app",
+      "dst": "cover_letter",
+      "names": []
+    },
+    {
+      "src": "app",
+      "dst": "cv_preview",
+      "names": []
+    },
+    {
+      "src": "app",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "app",
+      "dst": "followup_queue",
+      "names": []
+    },
+    {
+      "src": "app",
+      "dst": "import_jobs",
+      "names": []
+    },
+    {
+      "src": "contact_queue",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "cover_letter",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "cv_builder",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "cv_preview",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "db",
+      "dst": "config",
+      "names": [
+        "DB_PATH"
+      ]
+    },
+    {
+      "src": "followup_queue",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "import_jobs",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "import_jobs",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "import_jobs",
+      "dst": "normalize",
+      "names": [
+        "norm_status",
+        "parse_job_id",
+        "tc_key"
+      ]
+    },
+    {
+      "src": "interview_cv",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "interview_cv",
+      "dst": "cv_builder",
+      "names": [
+        "detect_sector",
+        "load_profile",
+        "resolve_profile"
+      ]
+    },
+    {
+      "src": "migrate",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "migrate",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "migrate",
+      "dst": "normalize",
+      "names": [
+        "clean",
+        "norm_date",
+        "norm_status",
+        "parse_job_id",
+        "tc_key"
+      ]
+    },
+    {
+      "src": "screening_cv",
+      "dst": "config",
+      "names": []
+    },
+    {
+      "src": "screening_cv",
+      "dst": "cv_builder",
+      "names": [
+        "load_profile"
+      ]
+    },
+    {
+      "src": "screening_queue",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "seed",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "seed",
+      "dst": "normalize",
+      "names": [
+        "clean",
+        "norm_date",
+        "norm_status",
+        "parse_job_id"
+      ]
+    },
+    {
+      "src": "tracker_add",
+      "dst": "db",
+      "names": []
+    },
+    {
+      "src": "tracker_add",
+      "dst": "normalize",
+      "names": [
+        "clean",
+        "norm_date",
+        "norm_status",
+        "parse_job_id"
+      ]
+    }
+  ],
+  "symbols": [
+    {
+      "module": "app",
+      "kind": "const",
+      "name": "DISPLAY_COLS",
+      "signature": "['id', *db.FIELDS]",
+      "doc": "",
+      "public": true,
+      "line": 22
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "load_df",
+      "signature": "() -> pd.DataFrame",
+      "doc": "",
+      "public": true,
+      "line": 31
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "refresh",
+      "signature": "() -> None",
+      "doc": "",
+      "public": true,
+      "line": 40
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "_norm",
+      "signature": "(v) -> str | None",
+      "doc": "Normalise a cell for comparison / storage: blanks -> None.",
+      "public": false,
+      "line": 44
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "persist_changes",
+      "signature": "(edited: pd.DataFrame, shown_ids: set[int]) -> dict[str, int]",
+      "doc": "Diff the edited grid against the DB and apply inserts/updates/deletes.",
+      "public": true,
+      "line": 54
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "_parse_job_id",
+      "signature": "(link: str | None) -> str | None",
+      "doc": "",
+      "public": false,
+      "line": 91
+    },
+    {
+      "module": "app",
+      "kind": "const",
+      "name": "DRAFT_CV",
+      "signature": "'Draft CV'",
+      "doc": "",
+      "public": true,
+      "line": 100
+    },
+    {
+      "module": "app",
+      "kind": "const",
+      "name": "DRAFT_CV_CL",
+      "signature": "'Draft CV & Cover Letter'",
+      "doc": "",
+      "public": true,
+      "line": 101
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "persist_status_changes",
+      "signature": "(edited: pd.DataFrame) -> dict",
+      "doc": "Apply To-action status edits.",
+      "public": true,
+      "line": 104
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "_applied_recently",
+      "signature": "(s: pd.Series) -> int",
+      "doc": "",
+      "public": false,
+      "line": 154
+    },
+    {
+      "module": "app",
+      "kind": "function",
+      "name": "_follow_up_due_mask",
+      "signature": "(d: pd.DataFrame) -> pd.Series",
+      "doc": "Applied roles with a recruiter contact, ≥2 working days since applying,",
+      "public": false,
+      "line": 160
+    },
+    {
+      "module": "app",
+      "kind": "const",
+      "name": "ACTIONED_STATUSES",
+      "signature": "{'Applied', 'Shortlisted', 'Interview', 'Offer', 'Pass', 'R…",
+      "doc": "",
+      "public": true,
+      "line": 174
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "PROJECT_ROOT",
+      "signature": "Path(__file__).resolve().parent",
+      "doc": "",
+      "public": true,
+      "line": 20
+    },
+    {
+      "module": "config",
+      "kind": "function",
+      "name": "_path_env",
+      "signature": "(name: str, default: Path | None) -> Path | None",
+      "doc": "",
+      "public": false,
+      "line": 23
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "DB_PATH",
+      "signature": "_path_env('JOBTRACKER_DB', PROJECT_ROOT / 'jobs.db')",
+      "doc": "",
+      "public": true,
+      "line": 29
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "XLSX_PATH",
+      "signature": "_path_env('JOBTRACKER_XLSX', None)",
+      "doc": "",
+      "public": true,
+      "line": 33
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "IMPORT_DB_PATH",
+      "signature": "_path_env('JOBTRACKER_IMPORT_DB', None)",
+      "doc": "",
+      "public": true,
+      "line": 37
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "COVER_LETTER_DIR",
+      "signature": "_path_env('JOBTRACKER_COVER_LETTER_DIR', PROJECT_ROOT / 'co…",
+      "doc": "",
+      "public": true,
+      "line": 40
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "CV_DIR",
+      "signature": "_path_env('JOBTRACKER_CV_DIR', PROJECT_ROOT / 'cvs')",
+      "doc": "",
+      "public": true,
+      "line": 43
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "RESUME_DIR",
+      "signature": "_path_env('JOBTRACKER_RESUME_DIR', PROJECT_ROOT / 'resumes')",
+      "doc": "",
+      "public": true,
+      "line": 47
+    },
+    {
+      "module": "config",
+      "kind": "const",
+      "name": "PROFILE_PATH",
+      "signature": "_path_env('JOBTRACKER_PROFILE', PROJECT_ROOT / 'profile.jso…",
+      "doc": "",
+      "public": true,
+      "line": 51
+    },
+    {
+      "module": "contact_queue",
+      "kind": "const",
+      "name": "NEEDS_CONTACT_STATUSES",
+      "signature": "('Applied', 'Shortlisted', 'Interview', 'Offer')",
+      "doc": "",
+      "public": true,
+      "line": 28
+    },
+    {
+      "module": "contact_queue",
+      "kind": "const",
+      "name": "CONTACT_SOURCES",
+      "signature": "('named-inbox', 'named-verified', 'dept-inbox', 'none')",
+      "doc": "",
+      "public": true,
+      "line": 32
+    },
+    {
+      "module": "contact_queue",
+      "kind": "function",
+      "name": "list_needs_contact",
+      "signature": "(conn: sqlite3.Connection) -> list[dict]",
+      "doc": "Return live, non-archived roles that still need a recruiter contact.",
+      "public": true,
+      "line": 35
+    },
+    {
+      "module": "contact_queue",
+      "kind": "function",
+      "name": "record_contact",
+      "signature": "(conn: sqlite3.Connection, role_id: int, email: str, source: str, date_applied: str | None=None) -> None",
+      "doc": "File a resolved (verified) recruiter address onto a role.",
+      "public": true,
+      "line": 58
+    },
+    {
+      "module": "contact_queue",
+      "kind": "function",
+      "name": "record_no_contact",
+      "signature": "(conn: sqlite3.Connection, role_id: int, note: str='no email — nudge via platform') -> None",
+      "doc": "Mark a role as having no reachable email so it stops re-queuing.",
+      "public": true,
+      "line": 87
+    },
+    {
+      "module": "cover_letter",
+      "kind": "function",
+      "name": "_safe",
+      "signature": "(name: str) -> str",
+      "doc": "Make a string safe to use in a filename.",
+      "public": false,
+      "line": 20
+    },
+    {
+      "module": "cover_letter",
+      "kind": "function",
+      "name": "cover_letter_path",
+      "signature": "(job: dict, out_dir: Path | str | None=None) -> Path",
+      "doc": "",
+      "public": true,
+      "line": 26
+    },
+    {
+      "module": "cover_letter",
+      "kind": "function",
+      "name": "generate_cover_letter",
+      "signature": "(job: dict, out_dir: Path | str | None=None) -> Path",
+      "doc": "Write a draft cover letter for ``job`` and return the saved path.",
+      "public": true,
+      "line": 33
+    },
+    {
+      "module": "cv_builder",
+      "kind": "const",
+      "name": "NAVY",
+      "signature": "RGBColor(13, 43, 85)",
+      "doc": "",
+      "public": true,
+      "line": 23
+    },
+    {
+      "module": "cv_builder",
+      "kind": "const",
+      "name": "TEAL",
+      "signature": "RGBColor(0, 112, 158)",
+      "doc": "",
+      "public": true,
+      "line": 24
+    },
+    {
+      "module": "cv_builder",
+      "kind": "const",
+      "name": "MID",
+      "signature": "RGBColor(68, 68, 68)",
+      "doc": "",
+      "public": true,
+      "line": 25
+    },
+    {
+      "module": "cv_builder",
+      "kind": "const",
+      "name": "LIGHT",
+      "signature": "RGBColor(118, 118, 118)",
+      "doc": "",
+      "public": true,
+      "line": 26
+    },
+    {
+      "module": "cv_builder",
+      "kind": "const",
+      "name": "FONT",
+      "signature": "'Calibri'",
+      "doc": "",
+      "public": true,
+      "line": 27
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "_set",
+      "signature": "(run, size, color, bold=False, italic=False)",
+      "doc": "",
+      "public": false,
+      "line": 30
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "_divider",
+      "signature": "(doc)",
+      "doc": "",
+      "public": false,
+      "line": 38
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "_heading",
+      "signature": "(doc, text)",
+      "doc": "",
+      "public": false,
+      "line": 51
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "_job_header",
+      "signature": "(doc, title, company, dates)",
+      "doc": "",
+      "public": false,
+      "line": 59
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "_bullet",
+      "signature": "(doc, text)",
+      "doc": "",
+      "public": false,
+      "line": 77
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "_safe",
+      "signature": "(name: str) -> str",
+      "doc": "",
+      "public": false,
+      "line": 84
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "load_profile",
+      "signature": "(profile_path: Path | str | None=None) -> dict",
+      "doc": "",
+      "public": true,
+      "line": 88
+    },
+    {
+      "module": "cv_builder",
+      "kind": "const",
+      "name": "SECTOR_PATTERNS",
+      "signature": "{'fs': 'financ|\\\\bbank|payment|settlement|\\\\bfx\\\\b|insuranc…",
+      "doc": "",
+      "public": true,
+      "line": 101
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "detect_sector",
+      "signature": "(role: dict) -> str",
+      "doc": "",
+      "public": true,
+      "line": 111
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "resolve_profile",
+      "signature": "(prof: dict, sector: str, max_competencies: int=10) -> tuple[str, list]",
+      "doc": "Pick the sector's profile paragraph and order competencies (lead ones first).",
+      "public": true,
+      "line": 119
+    },
+    {
+      "module": "cv_builder",
+      "kind": "function",
+      "name": "generate_cv",
+      "signature": "(role: dict, profile_path=None, out_dir=None) -> Path",
+      "doc": "Write a first-draft CV for ``role`` and return the saved path.",
+      "public": true,
+      "line": 132
+    },
+    {
+      "module": "cv_preview",
+      "kind": "const",
+      "name": "SEARCH_DIRS",
+      "signature": "tuple((p for p in (config.RESUME_DIR, config.CV_DIR, config…",
+      "doc": "",
+      "public": true,
+      "line": 21
+    },
+    {
+      "module": "cv_preview",
+      "kind": "function",
+      "name": "find_cv",
+      "signature": "(filename: str | None) -> Path | None",
+      "doc": "Locate a CV by bare filename in the known output folders (no path traversal).",
+      "public": true,
+      "line": 26
+    },
+    {
+      "module": "cv_preview",
+      "kind": "function",
+      "name": "_runs_md",
+      "signature": "(paragraph: Paragraph) -> str",
+      "doc": "Paragraph text with bold/italic runs mapped to Markdown, whitespace kept.",
+      "public": false,
+      "line": 38
+    },
+    {
+      "module": "cv_preview",
+      "kind": "function",
+      "name": "_paragraph_md",
+      "signature": "(p: Paragraph) -> str | None",
+      "doc": "",
+      "public": false,
+      "line": 54
+    },
+    {
+      "module": "cv_preview",
+      "kind": "function",
+      "name": "_table_md",
+      "signature": "(t: Table) -> str",
+      "doc": "",
+      "public": false,
+      "line": 73
+    },
+    {
+      "module": "cv_preview",
+      "kind": "function",
+      "name": "docx_to_markdown",
+      "signature": "(path: Path | str) -> str",
+      "doc": "Walk the document body in order, converting paragraphs and tables.",
+      "public": true,
+      "line": 86
+    },
+    {
+      "module": "db",
+      "kind": "const",
+      "name": "FIELDS",
+      "signature": "['date_found', 'title', 'company', 'type', 'rate', 'locatio…",
+      "doc": "",
+      "public": true,
+      "line": 17
+    },
+    {
+      "module": "db",
+      "kind": "const",
+      "name": "APP_COLUMNS",
+      "signature": "('contact_email', 'contact_source', 'follow_up', 'follow_up…",
+      "doc": "",
+      "public": true,
+      "line": 36
+    },
+    {
+      "module": "db",
+      "kind": "const",
+      "name": "STATUSES",
+      "signature": "['Found', 'Draft CV', 'Draft CV & Cover Letter', 'CV Drafte…",
+      "doc": "",
+      "public": true,
+      "line": 45
+    },
+    {
+      "module": "db",
+      "kind": "const",
+      "name": "SCHEMA",
+      "signature": "\"\\nCREATE TABLE IF NOT EXISTS jobs (\\n id INTEGER PRIMARY K…",
+      "doc": "",
+      "public": true,
+      "line": 50
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "connect",
+      "signature": "(db_path: Path | str=DB_PATH) -> sqlite3.Connection",
+      "doc": "",
+      "public": true,
+      "line": 84
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "init_db",
+      "signature": "(db_path: Path | str=DB_PATH) -> None",
+      "doc": "",
+      "public": true,
+      "line": 97
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "_ensure_columns",
+      "signature": "(conn: sqlite3.Connection) -> None",
+      "doc": "Add columns introduced after a database was first created (idempotent).",
+      "public": false,
+      "line": 103
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "insert_job",
+      "signature": "(conn: sqlite3.Connection, data: dict[str, Any]) -> int",
+      "doc": "",
+      "public": true,
+      "line": 119
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "update_job",
+      "signature": "(conn: sqlite3.Connection, job_id: int, data: dict[str, Any]) -> None",
+      "doc": "",
+      "public": true,
+      "line": 127
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "delete_job",
+      "signature": "(conn: sqlite3.Connection, job_id: int) -> None",
+      "doc": "",
+      "public": true,
+      "line": 136
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "fetch_all",
+      "signature": "(conn: sqlite3.Connection) -> list[sqlite3.Row]",
+      "doc": "",
+      "public": true,
+      "line": 140
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "find_by_source_job_id",
+      "signature": "(conn: sqlite3.Connection, source_job_id: str) -> sqlite3.Row | None",
+      "doc": "",
+      "public": true,
+      "line": 144
+    },
+    {
+      "module": "db",
+      "kind": "function",
+      "name": "upsert_job",
+      "signature": "(conn: sqlite3.Connection, data: dict[str, Any]) -> tuple[int, str]",
+      "doc": "Insert or update a job keyed on its ``source_job_id``.",
+      "public": true,
+      "line": 150
+    },
+    {
+      "module": "followup_queue",
+      "kind": "const",
+      "name": "WORKING_DAY_LAG",
+      "signature": "2",
+      "doc": "",
+      "public": true,
+      "line": 27
+    },
+    {
+      "module": "followup_queue",
+      "kind": "const",
+      "name": "FOLLOW_UP_DEFAULT",
+      "signature": "0",
+      "doc": "",
+      "public": true,
+      "line": 30
+    },
+    {
+      "module": "followup_queue",
+      "kind": "const",
+      "name": "FOLLOW_UP_TICKED",
+      "signature": "1",
+      "doc": "",
+      "public": true,
+      "line": 31
+    },
+    {
+      "module": "followup_queue",
+      "kind": "const",
+      "name": "FOLLOW_UP_OPTED_OUT",
+      "signature": "2",
+      "doc": "",
+      "public": true,
+      "line": 32
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "add_working_days",
+      "signature": "(day: date, n: int) -> date",
+      "doc": "Return ``day`` advanced by ``n`` working days (Mon–Fri).",
+      "public": true,
+      "line": 35
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "is_due",
+      "signature": "(date_applied, today: date | None=None) -> bool",
+      "doc": "True once ``WORKING_DAY_LAG`` working days have passed since applying.",
+      "public": true,
+      "line": 44
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "_sent",
+      "signature": "(row: dict) -> bool",
+      "doc": "",
+      "public": false,
+      "line": 59
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "_drafted",
+      "signature": "(row: dict) -> bool",
+      "doc": "",
+      "public": false,
+      "line": 63
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "list_due",
+      "signature": "(conn: sqlite3.Connection, today: date | None=None) -> list[dict]",
+      "doc": "Due follow-ups: active + Applied + contact + due + ticked + not sent.",
+      "public": true,
+      "line": 67
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "list_to_draft",
+      "signature": "(conn: sqlite3.Connection, today: date | None=None) -> list[dict]",
+      "doc": "The subset of ``list_due`` still needing a draft written.",
+      "public": true,
+      "line": 93
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "record_draft",
+      "signature": "(conn: sqlite3.Connection, role_id: int, draft_url: str) -> None",
+      "doc": "File a written Gmail draft onto the role (drafted, NOT sent).",
+      "public": true,
+      "line": 98
+    },
+    {
+      "module": "followup_queue",
+      "kind": "function",
+      "name": "mark_sent",
+      "signature": "(conn: sqlite3.Connection, role_id: int, when: date | None=None) -> None",
+      "doc": "Settle a follow-up after the user has sent it from Gmail.",
+      "public": true,
+      "line": 110
+    },
+    {
+      "module": "import_jobs",
+      "kind": "function",
+      "name": "import_jobs",
+      "signature": "(source_db: Path | str | None=None, target_db: Path | str | None=None) -> dict",
+      "doc": "Insert new roles from ``source_db`` into ``target_db``. Returns a summary.",
+      "public": true,
+      "line": 26
+    },
+    {
+      "module": "import_jobs",
+      "kind": "function",
+      "name": "main",
+      "signature": "() -> None",
+      "doc": "",
+      "public": true,
+      "line": 76
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "NAVY",
+      "signature": "'#0d2b55'",
+      "doc": "",
+      "public": true,
+      "line": 22
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "TEAL",
+      "signature": "'#00709e'",
+      "doc": "",
+      "public": true,
+      "line": 23
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "INK",
+      "signature": "'#26272b'",
+      "doc": "",
+      "public": true,
+      "line": 24
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "MID",
+      "signature": "'#52525b'",
+      "doc": "",
+      "public": true,
+      "line": 25
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "LIGHT",
+      "signature": "'#71717a'",
+      "doc": "",
+      "public": true,
+      "line": 26
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "LINE",
+      "signature": "'#e4e7ec'",
+      "doc": "",
+      "public": true,
+      "line": 27
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "CHIPBG",
+      "signature": "'#eef4f7'",
+      "doc": "",
+      "public": true,
+      "line": 28
+    },
+    {
+      "module": "interview_cv",
+      "kind": "const",
+      "name": "_CHROME",
+      "signature": "['/Applications/Google Chrome.app/Contents/MacOS/Google Chr…",
+      "doc": "",
+      "public": false,
+      "line": 30
+    },
+    {
+      "module": "interview_cv",
+      "kind": "function",
+      "name": "_chrome",
+      "signature": "() -> str",
+      "doc": "",
+      "public": false,
+      "line": 39
+    },
+    {
+      "module": "interview_cv",
+      "kind": "function",
+      "name": "_e",
+      "signature": "(s) -> str",
+      "doc": "",
+      "public": false,
+      "line": 46
+    },
+    {
+      "module": "interview_cv",
+      "kind": "function",
+      "name": "_safe",
+      "signature": "(name: str) -> str",
+      "doc": "",
+      "public": false,
+      "line": 50
+    },
+    {
+      "module": "interview_cv",
+      "kind": "function",
+      "name": "render_html",
+      "signature": "(role: dict, profile: dict, screening: dict | None=None) -> str",
+      "doc": "",
+      "public": true,
+      "line": 54
+    },
+    {
+      "module": "interview_cv",
+      "kind": "function",
+      "name": "generate_interview_cv",
+      "signature": "(role: dict, screening: dict | None=None, profile_path=None, out_dir=None) -> Path",
+      "doc": "Render a designed interview CV for ``role`` and return the saved PDF path.",
+      "public": true,
+      "line": 143
+    },
+    {
+      "module": "migrate",
+      "kind": "const",
+      "name": "DATA_SHEETS",
+      "signature": "['Pipeline', 'Applied', 'Not Applied']",
+      "doc": "",
+      "public": true,
+      "line": 39
+    },
+    {
+      "module": "migrate",
+      "kind": "const",
+      "name": "COL_TO_FIELD",
+      "signature": "['date_found', 'title', 'company', 'type', 'rate', 'locatio…",
+      "doc": "",
+      "public": true,
+      "line": 42
+    },
+    {
+      "module": "migrate",
+      "kind": "const",
+      "name": "DATE_FIELDS",
+      "signature": "{'date_found', 'posted', 'date_applied'}",
+      "doc": "",
+      "public": true,
+      "line": 57
+    },
+    {
+      "module": "migrate",
+      "kind": "function",
+      "name": "resolve_link",
+      "signature": "(cell) -> str | None",
+      "doc": "Prefer the hyperlink target; treat bare 'View advert' text as no link.",
+      "public": true,
+      "line": 60
+    },
+    {
+      "module": "migrate",
+      "kind": "function",
+      "name": "read_rows",
+      "signature": "(xlsx_path: Path)",
+      "doc": "",
+      "public": true,
+      "line": 71
+    },
+    {
+      "module": "migrate",
+      "kind": "function",
+      "name": "merge_into",
+      "signature": "(existing: dict, incoming: dict) -> None",
+      "doc": "Fill only blank fields on `existing` from `incoming` (first sheet wins).",
+      "public": true,
+      "line": 98
+    },
+    {
+      "module": "migrate",
+      "kind": "function",
+      "name": "build_unique_records",
+      "signature": "(xlsx_path: Path)",
+      "doc": "",
+      "public": true,
+      "line": 105
+    },
+    {
+      "module": "migrate",
+      "kind": "function",
+      "name": "main",
+      "signature": "() -> None",
+      "doc": "",
+      "public": true,
+      "line": 137
+    },
+    {
+      "module": "normalize",
+      "kind": "function",
+      "name": "clean",
+      "signature": "(value) -> str | None",
+      "doc": "Trim to a non-empty string, or None.",
+      "public": true,
+      "line": 11
+    },
+    {
+      "module": "normalize",
+      "kind": "function",
+      "name": "norm_date",
+      "signature": "(value) -> str | None",
+      "doc": "Coerce a date-ish value into an ISO string (YYYY-MM-DD) or None.",
+      "public": true,
+      "line": 19
+    },
+    {
+      "module": "normalize",
+      "kind": "function",
+      "name": "norm_status",
+      "signature": "(value) -> str",
+      "doc": "Default to 'Found'; treat the legacy literal 'Not Applied' as 'Found'.",
+      "public": true,
+      "line": 49
+    },
+    {
+      "module": "normalize",
+      "kind": "function",
+      "name": "parse_job_id",
+      "signature": "(link: str | None) -> str | None",
+      "doc": "Pull the numeric job-id out of a job URL (the stable dedupe key).",
+      "public": true,
+      "line": 55
+    },
+    {
+      "module": "normalize",
+      "kind": "function",
+      "name": "tc_key",
+      "signature": "(title: str | None, company: str | None) -> str",
+      "doc": "Fallback dedupe key (normalised title|company) for rows with no job-id.",
+      "public": true,
+      "line": 63
+    },
+    {
+      "module": "screening_cv",
+      "kind": "const",
+      "name": "BLACK",
+      "signature": "RGBColor(0, 0, 0)",
+      "doc": "",
+      "public": true,
+      "line": 27
+    },
+    {
+      "module": "screening_cv",
+      "kind": "const",
+      "name": "FONT",
+      "signature": "'Calibri'",
+      "doc": "",
+      "public": true,
+      "line": 28
+    },
+    {
+      "module": "screening_cv",
+      "kind": "function",
+      "name": "_run",
+      "signature": "(p, text, size=11, bold=False)",
+      "doc": "",
+      "public": false,
+      "line": 31
+    },
+    {
+      "module": "screening_cv",
+      "kind": "function",
+      "name": "_heading",
+      "signature": "(doc, text)",
+      "doc": "",
+      "public": false,
+      "line": 40
+    },
+    {
+      "module": "screening_cv",
+      "kind": "function",
+      "name": "_safe",
+      "signature": "(name: str) -> str",
+      "doc": "",
+      "public": false,
+      "line": 47
+    },
+    {
+      "module": "screening_cv",
+      "kind": "function",
+      "name": "cv_fulltext",
+      "signature": "(screening: dict, profile: dict) -> str",
+      "doc": "Flatten everything a parser would read, for a coverage check.",
+      "public": true,
+      "line": 51
+    },
+    {
+      "module": "screening_cv",
+      "kind": "function",
+      "name": "keyword_coverage",
+      "signature": "(keywords, text: str) -> dict",
+      "doc": "Report which JD keywords literally appear in ``text`` (covered) or not.",
+      "public": true,
+      "line": 62
+    },
+    {
+      "module": "screening_cv",
+      "kind": "function",
+      "name": "generate_screening_cv",
+      "signature": "(role: dict, screening: dict, profile_path=None, out_dir=None) -> Path",
+      "doc": "Render an ATS-safe screening CV from an agent-produced ``screening`` payload.",
+      "public": true,
+      "line": 85
+    },
+    {
+      "module": "screening_queue",
+      "kind": "const",
+      "name": "CV_QUEUE_STATUSES",
+      "signature": "('Draft CV', 'Draft CV & Cover Letter')",
+      "doc": "",
+      "public": true,
+      "line": 20
+    },
+    {
+      "module": "screening_queue",
+      "kind": "function",
+      "name": "list_queue",
+      "signature": "(conn: sqlite3.Connection) -> list[dict]",
+      "doc": "Return roles awaiting a screening CV, newest first.",
+      "public": true,
+      "line": 23
+    },
+    {
+      "module": "screening_queue",
+      "kind": "function",
+      "name": "record_result",
+      "signature": "(conn: sqlite3.Connection, role_id: int, cv_filename: str, coverage: dict | None=None, base_fit_notes: str='') -> None",
+      "doc": "File a drafted screening CV onto the role and settle it to 'CV Drafted'.",
+      "public": true,
+      "line": 30
+    },
+    {
+      "module": "seed",
+      "kind": "const",
+      "name": "DEFAULT_CSV",
+      "signature": "Path(__file__).with_name('sample_jobs.csv')",
+      "doc": "",
+      "public": true,
+      "line": 20
+    },
+    {
+      "module": "seed",
+      "kind": "const",
+      "name": "DATE_FIELDS",
+      "signature": "{'date_found', 'posted', 'date_applied'}",
+      "doc": "",
+      "public": true,
+      "line": 21
+    },
+    {
+      "module": "seed",
+      "kind": "function",
+      "name": "load_csv",
+      "signature": "(csv_path: Path | str=DEFAULT_CSV, target_db=None, reset: bool=False) -> int",
+      "doc": "",
+      "public": true,
+      "line": 24
+    },
+    {
+      "module": "seed",
+      "kind": "function",
+      "name": "main",
+      "signature": "() -> None",
+      "doc": "",
+      "public": true,
+      "line": 56
+    },
+    {
+      "module": "tracker_add",
+      "kind": "const",
+      "name": "DATE_FIELDS",
+      "signature": "{'date_found', 'posted', 'date_applied'}",
+      "doc": "",
+      "public": true,
+      "line": 49
+    },
+    {
+      "module": "tracker_add",
+      "kind": "function",
+      "name": "normalize_role",
+      "signature": "(data: dict) -> dict",
+      "doc": "Map an arbitrary input dict to a clean jobs-table record.",
+      "public": true,
+      "line": 52
+    },
+    {
+      "module": "tracker_add",
+      "kind": "function",
+      "name": "add_role",
+      "signature": "(data: dict, conn: sqlite3.Connection | None=None) -> tuple[int, str]",
+      "doc": "Upsert one role. Returns (id, 'inserted'|'updated').",
+      "public": true,
+      "line": 69
+    },
+    {
+      "module": "tracker_add",
+      "kind": "function",
+      "name": "add_roles",
+      "signature": "(roles: list[dict]) -> dict",
+      "doc": "Upsert many roles in a single transaction; returns a summary dict.",
+      "public": true,
+      "line": 84
+    },
+    {
+      "module": "tracker_add",
+      "kind": "function",
+      "name": "_roles_from_args",
+      "signature": "(args: argparse.Namespace) -> list[dict]",
+      "doc": "",
+      "public": false,
+      "line": 105
+    },
+    {
+      "module": "tracker_add",
+      "kind": "function",
+      "name": "main",
+      "signature": "() -> None",
+      "doc": "",
+      "public": true,
+      "line": 124
+    }
+  ],
+  "entrypoints": [
+    {
+      "module": "app",
+      "kind": "streamlit",
+      "how": "streamlit run app.py",
+      "description": "Streamlit frontend for the local job application tracker."
+    },
+    {
+      "module": "import_jobs",
+      "kind": "cli",
+      "how": "python import_jobs.py",
+      "description": "Import roles from an external SQLite DB."
+    },
+    {
+      "module": "migrate",
+      "kind": "cli",
+      "how": "python migrate.py",
+      "description": "Import a tracker spreadsheet into jobs.db"
+    },
+    {
+      "module": "seed",
+      "kind": "cli",
+      "how": "python seed.py",
+      "description": "Seed the tracker with demo data."
+    },
+    {
+      "module": "tracker_add",
+      "kind": "cli",
+      "how": "python tracker_add.py",
+      "description": "Add/update roles in the job tracker DB."
+    }
+  ],
+  "tables": [
+    {
+      "name": "jobs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": true,
+          "notnull": false
+        },
+        {
+          "name": "date_found",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "title",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": true
+        },
+        {
+          "name": "company",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "type",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "rate",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "location",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "posted",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "link",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "fit_notes",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": true
+        },
+        {
+          "name": "cv_version",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "cover_letter",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "date_applied",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "outcome",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "contact_email",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "contact_source",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "follow_up",
+          "type": "INTEGER",
+          "pk": false,
+          "notnull": true
+        },
+        {
+          "name": "follow_up_status",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "follow_up_draft",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "archived",
+          "type": "INTEGER",
+          "pk": false,
+          "notnull": true
+        },
+        {
+          "name": "source_job_id",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": true
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "pk": false,
+          "notnull": true
+        }
+      ],
+      "fks": []
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      "Found",
+      "Draft CV",
+      "Draft CV & Cover Letter",
+      "CV Drafted",
+      "Applied",
+      "Shortlisted",
+      "Interview",
+      "Offer",
+      "Pass",
+      "Rejected",
+      "Expired"
+    ],
+    "transitions": [
+      [
+        "Found",
+        "Draft CV"
+      ],
+      [
+        "Found",
+        "Draft CV & Cover Letter"
+      ],
+      [
+        "Draft CV",
+        "CV Drafted"
+      ],
+      [
+        "Draft CV & Cover Letter",
+        "CV Drafted"
+      ],
+      [
+        "CV Drafted",
+        "Applied"
+      ],
+      [
+        "Applied",
+        "Shortlisted"
+      ],
+      [
+        "Shortlisted",
+        "Interview"
+      ],
+      [
+        "Interview",
+        "Offer"
+      ],
+      [
+        "*",
+        "Pass"
+      ],
+      [
+        "*",
+        "Rejected"
+      ],
+      [
+        "*",
+        "Expired"
+      ]
+    ],
+    "notes": {
+      "archived": "Orthogonal boolean flag, not a status: ended/closed roles are hidden from the main grid but kept (ADR-011).",
+      "Pass / Rejected / Expired": "Terminal outcomes reachable from any active status."
+    }
+  }
+}

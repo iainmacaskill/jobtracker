@@ -138,7 +138,40 @@ def generate_cv(role: dict, profile_path=None, out_dir=None) -> Path:
     sector = detect_sector(role)
     profile_text, competencies = resolve_profile(prof, sector)
     path = out_dir / f"{prof.get('name', 'CV')} - {_safe(title)}.docx"
+    return write_cv(
+        path, name=prof.get("name", ""), title_line=title, contact=prof.get("contact", ""),
+        summary=profile_text, competencies=competencies, jobs=prof.get("jobs", []),
+        achievements=prof.get("achievements", []), certifications=prof.get("certifications", ""),
+        education=prof.get("education", ""),
+    )
 
+
+def generate_tailored_cv(role: dict, tailored: dict, profile: dict | None = None,
+                         out_dir=None) -> Path:
+    """Render a CV whose content Claude tailored to ``role`` (the claude-web
+    ``cv_tailor`` result). Name and contact come from the profile; everything
+    else from the tailored content. Saved alongside the rule-based drafts with a
+    ``(Claude)`` suffix so neither overwrites the other."""
+    profile = profile or {}
+    out_dir = Path(out_dir) if out_dir else config.CV_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    title = (role.get("title") or "Role").strip()
+    name = profile.get("name") or tailored.get("name") or "CV"
+    path = out_dir / f"{name} - {_safe(title)} (Claude).docx"
+    return write_cv(
+        path, name=name, title_line=tailored.get("headline") or title,
+        contact=profile.get("contact", ""), summary=tailored.get("summary", ""),
+        competencies=tailored.get("competencies") or [], jobs=tailored.get("jobs") or [],
+        achievements=tailored.get("achievements") or [],
+        certifications=tailored.get("certifications") or profile.get("certifications", ""),
+        education=tailored.get("education") or profile.get("education", ""),
+    )
+
+
+def write_cv(path: Path, *, name: str, title_line: str, contact: str, summary: str,
+             competencies: list, jobs: list, achievements: list, certifications: str,
+             education: str) -> Path:
+    """Lay out one CV (.docx) at ``path`` and return it."""
     doc = Document()
     for section in doc.sections:
         section.top_margin = Cm(1.5)
@@ -149,23 +182,23 @@ def generate_cv(role: dict, profile_path=None, out_dir=None) -> Path:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(2)
-    _set(p.add_run(prof.get("name", "")), 22, NAVY, bold=True)
+    _set(p.add_run(name), 22, NAVY, bold=True)
 
     p = doc.add_paragraph()  # title line == the role title
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(2)
-    _set(p.add_run(title), 11, TEAL)
+    _set(p.add_run(title_line), 11, TEAL)
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(4)
-    _set(p.add_run(prof.get("contact", "")), 9.5, LIGHT)
+    _set(p.add_run(contact), 9.5, LIGHT)
     _divider(doc)
 
     _heading(doc, "Profile")
     p = doc.add_paragraph()
     p.paragraph_format.space_after = Pt(4)
-    _set(p.add_run(profile_text), 10, MID)
+    _set(p.add_run(summary), 10, MID)
 
     _heading(doc, "Core Competencies")
     comps = competencies
@@ -191,20 +224,22 @@ def generate_cv(role: dict, profile_path=None, out_dir=None) -> Path:
         _set(cell.paragraphs[0].add_run(f"▪ {comp}"), 10, MID)
 
     _heading(doc, "Professional Experience")
-    for job in prof.get("jobs", []):
+    for job in jobs:
         _job_header(doc, job.get("title", ""), job.get("company", ""), job.get("dates", ""))
         for bullet in job.get("bullets", []):
             _bullet(doc, bullet)
 
-    _heading(doc, "Key Achievements")
-    for ach in prof.get("achievements", []):
-        _bullet(doc, ach)
+    if achievements:  # an empty heading reads as a gap
+        _heading(doc, "Key Achievements")
+        for ach in achievements:
+            _bullet(doc, ach)
 
-    _heading(doc, "Certifications & Education")
-    if prof.get("certifications"):
-        _set(doc.add_paragraph().add_run(prof["certifications"]), 10, MID)
-    if prof.get("education"):
-        _set(doc.add_paragraph().add_run(prof["education"]), 10, MID)
+    if certifications or education:
+        _heading(doc, "Certifications & Education")
+    if certifications:
+        _set(doc.add_paragraph().add_run(certifications), 10, MID)
+    if education:
+        _set(doc.add_paragraph().add_run(education), 10, MID)
 
     _heading(doc, "Additional")
     _set(doc.add_paragraph().add_run("Full right to work in the UK."), 10, MID)

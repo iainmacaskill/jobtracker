@@ -12,7 +12,9 @@ from urllib.parse import quote
 import pandas as pd
 import streamlit as st
 
+import ai_panel
 import config
+import cv_preview
 import db
 import followup_queue
 
@@ -151,8 +153,9 @@ week_ago = today - dt.timedelta(days=7)
 
 
 def _applied_recently(s: pd.Series) -> int:
-    dates = pd.to_datetime(s, errors="coerce").dt.date
-    return int(((dates >= week_ago) & (dates <= today)).sum())
+    dates = pd.to_datetime(s, errors="coerce").dt.normalize()
+    lo, hi = pd.Timestamp(week_ago), pd.Timestamp(today)
+    return int(((dates >= lo) & (dates <= hi)).sum())
 
 
 def _follow_up_due_mask(d: pd.DataFrame) -> pd.Series:
@@ -211,6 +214,7 @@ if not _cv_queued.empty:
             "writes the optimised screening CV, then settles the role to **CV Drafted**."
         )
         st.code("draft the queued screening CVs", language=None)
+        ai_panel.queue_button(_cv_queued)
 
 # --- Contact-resolver queue ("Needs a contact") --------------------------- #
 # A follow-up email needs a recruiter address. Live roles (Applied+) with no
@@ -412,6 +416,9 @@ if not to_action.empty:
             if not res["errors"]:
                 st.rerun()
 
+# --- Claude assistant: CV upload, profile, AI drafting (ADR-012) ---------- #
+ai_panel.render(df)
+
 # --- Filters --------------------------------------------------------------- #
 _found_dates = pd.to_datetime(df["date_found"], errors="coerce").dt.date.dropna()
 _min_found = _found_dates.min() if not _found_dates.empty else today
@@ -472,8 +479,8 @@ if company_sel:
     view = view[view["company"].isin(company_sel)]
 if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
     lo, hi = date_range
-    found = pd.to_datetime(view["date_found"], errors="coerce").dt.date
-    view = view[(found.isna()) | ((found >= lo) & (found <= hi))]
+    found = pd.to_datetime(view["date_found"], errors="coerce").dt.normalize()
+    view = view[(found.isna()) | ((found >= pd.Timestamp(lo)) & (found <= pd.Timestamp(hi)))]
 if search.strip():
     q = search.strip().lower()
     hay = (
@@ -567,6 +574,53 @@ with col_gmail:
             "opens a search — it does not read your inbox or change the tracker."
         ),
     )
+
+# --- CV preview ------------------------------------------------------------ #
+# Content preview of a drafted .docx (headings/bullets/bold), not page layout —
+# see cv_preview.py. The download button gives the real file.
+st.divider()
+st.subheader("📄 CV preview")
+_with_cv = _all_df[_all_df["cv_version"].fillna("").astype(str).str.strip() != ""]
+if _with_cv.empty:
+    st.caption("No roles have a CV version recorded yet.")
+else:
+    _cv_map: dict[str, tuple[str, int]] = {}
+    for _, r in _with_cv.sort_values("date_found", ascending=False, na_position="last").iterrows():
+        _label = f"{int(r['id'])} · {r['title'] or '(untitled)'} — {r['company'] or '—'}"
+        _cv_map[_label] = (str(r["cv_version"]).strip(), int(r["id"]))
+    _cv_pick_col, _cv_dl_col = st.columns([3, 1])
+    _cv_choice = _cv_pick_col.selectbox(
+        "Role", list(_cv_map), key="cv_preview_role", label_visibility="collapsed",
+    )
+    _cv_name, _ = _cv_map[_cv_choice]
+    _cv_path = cv_preview.find_cv(_cv_name)
+    if _cv_path is None:
+        _cv_dl_col.button("⬇️ Download .docx", disabled=True, width="stretch")
+        st.warning(
+            f"`{_cv_name}` not found in "
+            + " or ".join(f"`{d}`" for d in cv_preview.SEARCH_DIRS)
+            + ". Check the CV version column matches the file on disk."
+        )
+    else:
+        _cv_dl_col.download_button(
+            "⬇️ Download .docx",
+            data=_cv_path.read_bytes(),
+            file_name=_cv_path.name,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            width="stretch",
+            key=f"cv_dl_{_cv_path.name}",
+        )
+        try:
+            _cv_md = cv_preview.docx_to_markdown(_cv_path)
+        except Exception as exc:  # corrupt / non-docx file
+            st.error(f"Couldn't read `{_cv_path.name}`: {exc}")
+        else:
+            with st.container(border=True, height=520):
+                st.markdown(_cv_md)
+            st.caption(
+                f"`{_cv_path}` · content preview only — fonts, margins and page "
+                "breaks aren't shown; open the .docx to check it fits on two pages."
+            )
 
 # --- Archive --------------------------------------------------------------- #
 st.divider()
